@@ -1,4 +1,4 @@
-/* Copyright (c) 2010-2011, Code Aurora Forum. All rights reserved.
+/* Copyright (c) 2010-2012, The Linux Foundation. All rights reserved.
  *
  * This program is free software; you can redistribute it and/or modify
  * it under the terms of the GNU General Public License version 2 and
@@ -11,7 +11,7 @@
  *
  */
 /*
- * Qualcomm MSM Runqueue Stats Interface for Userspace
+ * Qualcomm MSM Runqueue Stats and cpu utilization Interface for Userspace
  */
 #include <linux/kernel.h>
 #include <linux/init.h>

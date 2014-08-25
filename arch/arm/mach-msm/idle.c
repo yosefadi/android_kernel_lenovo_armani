@@ -2,7 +2,7 @@
  *
  * Idle processing for MSM7K - work around bugs with SWFI.
  *
- * Copyright (c) 2007 Qualcomm Technologies, Inc.
+ * Copyright (c) 2007 QUALCOMM Incorporated.
  * Copyright (C) 2007 Google, Inc.
  *
  * This software is licensed under the terms of the GNU General Public
