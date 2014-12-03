@@ -135,8 +135,34 @@ static struct clock_state drv_state = { 0 };
  * SKUD_prime. If the target is quad core, we reinitialize this table using
  * the reinitalize_freq_table() function.
  */
+
+#ifdef CONFIG_MSM_CUSTOM_FREQ_TABLE 
 static struct clkctl_acpu_speed acpu_freq_tbl_cmn[] = {
 	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
+
+	{ 1, 122880, ACPU_PLL_1, 1, 1, 15360, 3, MAX_NOMINAL_VOLTAGE, 61440 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0,  65536, 2, MAX_NOMINAL_VOLTAGE, 98304 },
+
+	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, MAX_NOMINAL_VOLTAGE, 61440 },
+	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, MAX_NOMINAL_VOLTAGE, 122880 },
+	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, MAX_NOMINAL_VOLTAGE, 122880 },
+	{ 0, 600000, ACPU_PLL_2, 2, 1, 75000, 3, 0, 160000 },
+	{ 1, 700800, ACPU_PLL_4, 6, 0, 87500, 3, MAX_NOMINAL_VOLTAGE, 160000,
+						&pll4_cfg_tbl[0]},
+	{ 1, 1008000, ACPU_PLL_4, 6, 0, 126000, 3, MAX_1GHZ_VOLTAGE, 200000,
+						&pll4_cfg_tbl[1]},
+ 	{ 1, 1209600, ACPU_PLL_4, 6, 0, 151200, 3, MAX_12GHZ_VOLTAGE, 200000,
+						&pll4_cfg_tbl[2]},
+								
+	{ 1, 1401600, ACPU_PLL_4, 6, 0, 175000, 3, MAX_14GHZ_VOLTAGE, 200000,	
+						&pll4_cfg_tbl[3]},
+};
+
+#else
+static struct clkctl_acpu_speed acpu_freq_tbl_cmn[] = {
+	{ 0, 19200, ACPU_PLL_TCXO, 0, 0, 2400, 3, 0, 30720 },
+	{ 1, 122880, ACPU_PLL_1, 1, 1, 15360, 3, MAX_NOMINAL_VOLTAGE, 61440 },
+	{ 1, 196608, ACPU_PLL_1, 1, 0,  65536, 2, MAX_NOMINAL_VOLTAGE, 98304 },
 	{ 1, 245760, ACPU_PLL_1, 1, 0, 30720, 3, MAX_NOMINAL_VOLTAGE, 61440 },
 	{ 1, 320000, ACPU_PLL_0, 4, 2, 40000, 3, MAX_NOMINAL_VOLTAGE, 122880 },
 	{ 1, 480000, ACPU_PLL_0, 4, 1, 60000, 3, MAX_NOMINAL_VOLTAGE, 122880 },
@@ -156,7 +182,7 @@ static struct clkctl_acpu_speed acpu_freq_tbl_1401[] = {
 	{ 1, 1401600, ACPU_PLL_4, 6, 0, 175000, 3, MAX_14GHZ_VOLTAGE, 200000,
 						&pll4_cfg_tbl[3]},
 };
-
+#endif
 /* Entry corresponding to CDMA build*/
 static struct clkctl_acpu_speed acpu_freq_tbl_196608[] = {
 	{ 1, 196608, ACPU_PLL_1, 1, 0,  65536, 2, MAX_NOMINAL_VOLTAGE, 98304 },
@@ -166,11 +192,17 @@ static struct clkctl_acpu_speed acpu_freq_tbl_null[] = {
 	{ 0 },
 };
 
+#ifdef CONFIG_MSM_CUSTOM_FREQ_TABLE 
 static struct clkctl_acpu_speed acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl_cmn)
+	+ ARRAY_SIZE(acpu_freq_tbl_null)];
+#else	
+	
+static struct clkctl_acpu_speed acpu_freq_tbl[ARRAY_SIZE(acpu_freq_tbl_cmn)
+
 	+ ARRAY_SIZE(acpu_freq_tbl_1209)
 	+ ARRAY_SIZE(acpu_freq_tbl_1401)
 	+ ARRAY_SIZE(acpu_freq_tbl_null)];
-
+#endif
 /* Switch to this when reprogramming PLL4 */
 static struct clkctl_acpu_speed *backup_s;
 
@@ -629,15 +661,32 @@ static void __devinit select_freq_plan(unsigned int pvs_voltage,
 
 	memcpy(acpu_freq_tbl, acpu_freq_tbl_cmn, sizeof(acpu_freq_tbl_cmn));
 	size = ARRAY_SIZE(acpu_freq_tbl_cmn);
+	
+#ifdef CONFIG_MSM_CUSTOM_FREQ_TABLE 	
 
 	i = 0;		/* needed if we have a 1Ghz part */
 	/* select if it is a 1.2Ghz part */
 	if (pll_mhz[ACPU_PLL_4] == 1209) {
-		memcpy(acpu_freq_tbl + size, acpu_freq_tbl_1209,
+		
+		i = 1;		/* set the delta index */
+	}
+	
+	/* select if it is a 1.4Ghz part */
+	if (pll_mhz[ACPU_PLL_4] == 1401) {
+	  
+	  i = 2;		/* set the delta index */
+	}
+#else	
+
+	i = 0;		/* needed if we have a 1Ghz part */
+	/* select if it is a 1.2Ghz part */
+	if (pll_mhz[ACPU_PLL_4] == 1209) {
+	  memcpy(acpu_freq_tbl + size, acpu_freq_tbl_1209,
 						sizeof(acpu_freq_tbl_1209));
 		size += sizeof(acpu_freq_tbl_1209);
 		i = 1;		/* set the delta index */
 	}
+	
 	/* select if it is a 1.4Ghz part */
 	if (pll_mhz[ACPU_PLL_4] == 1401) {
 		memcpy(acpu_freq_tbl + size, acpu_freq_tbl_1209,
@@ -648,7 +697,7 @@ static void __devinit select_freq_plan(unsigned int pvs_voltage,
 		size += ARRAY_SIZE(acpu_freq_tbl_1401);
 		i = 2;		/* set the delta index */
 	}
-
+#endif
 	memcpy(acpu_freq_tbl + size, acpu_freq_tbl_null,
 						sizeof(acpu_freq_tbl_null));
 	size += sizeof(acpu_freq_tbl_null);
