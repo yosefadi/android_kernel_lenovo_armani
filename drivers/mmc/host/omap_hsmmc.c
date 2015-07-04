@@ -1915,7 +1915,7 @@ static int __devinit omap_hsmmc_probe(struct platform_device *pdev)
 
 	mmc->caps |= MMC_CAP_MMC_HIGHSPEED | MMC_CAP_SD_HIGHSPEED |
 #if defined(CONFIG_MACH_MSM8625Q_SKUD) || defined(CONFIG_MACH_MSM8625Q_SKUE)
-		     MMC_CAP_WHILE_BUSY;
+		     MMC_CAP_WAIT_WHILE_BUSY;
 #else
 		     MMC_CAP_WAIT_WHILE_BUSY | MMC_CAP_ERASE;
 #endif
