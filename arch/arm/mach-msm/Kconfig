@@ -2589,8 +2589,3 @@ config MSM_FIQ
 	  Modem will then generate an raise a FIQ on this line before sending
 	  SMSM reset
 endif
-config LENOVO_VIBRATOR_INTENSITY_SYSFS
-	bool "LENOVO vibrator intensity sysfs"
-	default n
-	help
-	  Select Y to enable a sysfs for controlling the vibrator intensity (voltage).
