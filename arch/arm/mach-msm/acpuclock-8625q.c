@@ -120,10 +120,10 @@ static struct clock_state drv_state = { 0 };
 
 /* PVS MAX Voltage in uV as per frequencies*/
 
-# define MAX_14GHZ_VOLTAGE 1350000
-# define MAX_12GHZ_VOLTAGE 1275000
-# define MAX_1GHZ_VOLTAGE 1175000
-# define MAX_NOMINAL_VOLTAGE 1150000
+# define MAX_14GHZ_VOLTAGE 1270000
+# define MAX_12GHZ_VOLTAGE 1198000
+# define MAX_1GHZ_VOLTAGE 1125000
+# define MAX_NOMINAL_VOLTAGE 1095000
 
 /* PVS deltas as per formula*/
 # define DELTA_LEVEL_1_UV 0
