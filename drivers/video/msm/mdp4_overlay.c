@@ -2170,12 +2170,14 @@ void mdp4_overlay_pipe_free(struct mdp4_overlay_pipe *pipe)
 
 }
 
-static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
+static int mdp4_overlay_req2pipe(struct mdp_overlay *req,
 			struct mdp4_overlay_pipe **ppipe,
 			struct msm_fb_data_type *mfd)
 {
 	struct mdp4_overlay_pipe *pipe;
 	int ret, ptype;
+
+	int mixer;
 
 	u32 upscale_max;
 	upscale_max = (mdp_rev >= MDP_REV_41) ?
@@ -2186,6 +2188,8 @@ static int mdp4_overlay_req2pipe(struct mdp_overlay *req, int mixer,
 		pr_err("%s: mfd == NULL, -ENODEV\n", __func__);
 		return -ENODEV;
 	}
+
+	mixer = mfd->panel_info.pdest;	/* DISPLAY_1 or DISPLAY_2 */
 
 	if (mixer >= MDP4_MIXER_MAX) {
 		pr_err("%s: mixer out of range!\n", __func__);
