@@ -16,6 +16,7 @@
 #include <linux/types.h>
 #ifdef __KERNEL__
 
+#include <linux/kref.h>
 #include <linux/ktime.h>
 #include <linux/list.h>
 #include <linux/spinlock.h>
@@ -24,6 +25,7 @@
 struct sync_timeline;
 struct sync_pt;
 struct sync_fence;
+struct seq_file;
 
 /**
  * struct sync_timeline_ops - sync object implementation ops
@@ -75,6 +77,14 @@ struct sync_timeline_ops {
 
 	/* optional */
 	int (*fill_driver_data)(struct sync_pt *syncpt, void *data, int size);
+
+	/* optional */
+	void (*timeline_value_str)(struct sync_timeline *timeline, char *str,
+				   int size);
+
+	/* optional */
+	void (*pt_value_str)(struct sync_pt *pt, char *str, int size);
+
 };
 
 /**
@@ -89,6 +99,7 @@ struct sync_timeline_ops {
  * @sync_timeline_list:	membership in global sync_timeline_list
  */
 struct sync_timeline {
+	struct kref		kref;
 	const struct sync_timeline_ops	*ops;
 	char			name[32];
 
@@ -119,6 +130,7 @@ struct sync_pt {
 	struct sync_timeline		*parent;
 	struct list_head	child_list;
 
+	struct list_head	signaled_list;
 	struct list_head	active_list;
 
 	struct sync_fence	*fence;
@@ -145,6 +157,7 @@ struct sync_pt {
  */
 struct sync_fence {
 	struct file		*file;
+	struct kref		kref;
 	char			name[32];
 
 	/* this list is immutable once the fence is created */
@@ -273,6 +286,15 @@ struct sync_fence *sync_fence_merge(const char *name,
 struct sync_fence *sync_fence_fdget(int fd);
 
 /**
+ * sync_fence_fdget() - get a fence from an fd
+ * @fd:		fd referencing a fence
+ *
+ * Ensures @fd references a valid fence, increments the refcount of the backing
+ * file, and returns the fence.
+ */
+struct sync_fence *sync_fence_fdget(int fd);
+
+/**
  * sync_fence_put() - puts a refernnce of a sync fence
  * @fence:	fence to put
  *
@@ -384,7 +406,7 @@ struct sync_fence_info_data {
  *
  * pass timeout in milliseconds.
  */
-#define SYNC_IOC_WAIT		_IOW(SYNC_IOC_MAGIC, 0, __u32)
+#define SYNC_IOC_WAIT		_IOW(SYNC_IOC_MAGIC, 0, __s32)
 
 /**
  * DOC: SYNC_IOC_MERGE - merge two fences
