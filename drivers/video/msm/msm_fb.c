@@ -1055,14 +1055,17 @@ static void msm_fb_imageblit(struct fb_info *info, const struct fb_image *image)
 static int msm_fb_blank(int blank_mode, struct fb_info *info)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
+//<<<<<<< HEAD
 
-	if (blank_mode == FB_BLANK_POWERDOWN) {
+/*	if (blank_mode == FB_BLANK_POWERDOWN) {
 		struct fb_event event;
 		event.info = info;
 		event.data = &blank_mode;
 		fb_notifier_call_chain(FB_EVENT_BLANK, &event);
 	}
-	msm_fb_pan_idle(mfd);
+	msm_fb_pan_idle(mfd); */
+//=======
+//>>>>>>> parent of 7474c22... msm_fb: call the backlight control before FB_BLANK_POWERDOWN
 	return msm_fb_blank_sub(blank_mode, info, mfd->op_enable);
 }
 
