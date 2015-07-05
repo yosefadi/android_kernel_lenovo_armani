@@ -124,6 +124,7 @@ void msm_fb_set_keyboardbacklight(__u32 key_blan);
 #define MSM_FB_MAX_DBGFS 1024
 #define MAX_BACKLIGHT_BRIGHTNESS 255
 #define WAIT_FENCE_TIMEOUT 100
+#define WAIT_DISP_OP_TIMEOUT 200
 
 int msm_fb_debugfs_file_index;
 struct dentry *msm_fb_debugfs_root;
@@ -435,6 +436,8 @@ static int msm_fb_remove(struct platform_device *pdev)
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
+	msm_fb_pan_idle(mfd);
+
 	msm_fb_remove_sysfs(pdev);
 
 	pm_runtime_disable(mfd->fbi->dev);
@@ -501,6 +504,8 @@ static int msm_fb_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
+
+	msm_fb_pan_idle(mfd);
 
 	console_lock();
 	fb_set_suspend(mfd->fbi, FBINFO_STATE_SUSPENDED);
@@ -624,6 +629,8 @@ static int msm_fb_resume(struct platform_device *pdev)
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
 
+	msm_fb_pan_idle(mfd);
+
 	console_lock();
 	ret = msm_fb_resume_sub(mfd);
 	pdev->dev.power.power_state = PMSG_ON;
@@ -670,6 +677,8 @@ static int msm_fb_ext_suspend(struct device *dev)
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
 
+	msm_fb_pan_idle(mfd);
+
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 	if (mfd->panel_info.type == HDMI_PANEL ||
 		mfd->panel_info.type == DTV_PANEL) {
@@ -700,6 +709,8 @@ static int msm_fb_ext_resume(struct device *dev)
 
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
+
+	msm_fb_pan_idle(mfd);
 
 	pdata = (struct msm_fb_panel_data *)mfd->pdev->dev.platform_data;
 	if (mfd->panel_info.type == HDMI_PANEL ||
@@ -1732,6 +1743,8 @@ static int msm_fb_release(struct fb_info *info, int user)
 		return -EINVAL;
 	}
 
+	msm_fb_pan_idle(mfd);
+
 	mfd->ref_cnt--;
 
 	if ((!mfd->ref_cnt) && (mfd->op_enable)) {
@@ -1787,12 +1800,18 @@ static int msm_fb_pan_idle(struct msm_fb_data_type *mfd)
 		mutex_unlock(&mfd->sync_mutex);
 		ret = wait_for_completion_interruptible_timeout(
 				&mfd->commit_comp,
-			msecs_to_jiffies(WAIT_FENCE_TIMEOUT));
+			msecs_to_jiffies(WAIT_DISP_OP_TIMEOUT));
 		if (ret < 0)
 			ret = -ERESTARTSYS;
 		else if (!ret)
 			pr_err("%s wait for commit_comp timeout %d %d",
 				__func__, ret, mfd->is_committing);
+		if (ret <= 0) {
+			mutex_lock(&mfd->sync_mutex);
+			mfd->is_committing = 0;
+			complete_all(&mfd->commit_comp);
+			mutex_unlock(&mfd->sync_mutex);
+		}
 	} else {
 		mutex_unlock(&mfd->sync_mutex);
 	}
