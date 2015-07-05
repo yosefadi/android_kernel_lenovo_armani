@@ -65,7 +65,6 @@ static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
 
 int vsync_mode = 1;
-int ret, i = 0;
 
 #define MAX_BLIT_REQ 256
 
@@ -1788,6 +1787,7 @@ void msm_fb_wait_for_fence(struct msm_fb_data_type *mfd)
 	}
 	mfd->acq_fen_cnt = 0;
 }
+
 int msm_fb_signal_timeline(struct msm_fb_data_type *mfd)
 {
 	mutex_lock(&mfd->sync_mutex);
@@ -1842,7 +1842,7 @@ static int msm_fb_pan_idle(struct msm_fb_data_type *mfd)
 	return ret;
 }
 
-static int msm_fb_pan_display_ex(struct fb_var_screeninfo *var,
+static int msm_fb_pan_display(struct fb_var_screeninfo *var,
 			      struct fb_info *info, u32 wait_for_finish)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
@@ -3645,25 +3645,35 @@ static int msmfb_display_commit(struct fb_info *info,
 						unsigned long *argp)
 {
 	int ret;
+	//struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
 	struct mdp_display_commit disp_commit;
+	//struct mdp_buf_fence *buf_fence;
 	ret = copy_from_user(&disp_commit, argp,
 			sizeof(disp_commit));
 	if (ret) {
 		pr_err("%s:copy_from_user failed", __func__);
 		return ret;
 	}
+	/*buf_fence = &disp_commit.buf_fence;
+	if (buf_fence->acq_fen_fd_cnt > 0)
+		ret = buf_fence_process(mfd, buf_fence);
+	if ((!ret) && (buf_fence->rel_fen_fd[0] > 0))
+	copy_back = TRUE; */
 
 	if (disp_commit.flags & MDP_DISPLAY_COMMIT_OVERLAY) {
 		ret = mdp4_overlay_commit(info);
 	} else {
-		buf_fence = &disp_commit.buf_fence;
-		if (buf_fence->acq_fen_fd_cnt > 0)
-			ret = buf_fence_process(mfd, buf_fence);
-		if ((!ret) && (buf_fence->rel_fen_fd[0] > 0))
-			copy_back = TRUE;
-
+		
 	ret = msm_fb_pan_display_ex(&disp_commit.var,
 			      info, disp_commit.wait_for_finish);
+
+	if (copy_back) {
+		ret = copy_to_user(argp,
+				&disp_commit, sizeof(disp_commit));
+			if (ret)
+				pr_err("%s:copy_to_user failed", __func__);
+		}
+	}
 	return ret;
 }
 
