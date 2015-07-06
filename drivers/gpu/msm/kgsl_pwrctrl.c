@@ -1230,7 +1230,6 @@ int kgsl_pwrctrl_sleep(struct kgsl_device *device)
 		break;
 	case KGSL_STATE_SLEEP:
 		status = _sleep(device);
-		kgsl_mmu_disable_clk_on_ts(&device->mmu, 0, false);
 		break;
 	case KGSL_STATE_SLUMBER:
 		status = _slumber(device);
