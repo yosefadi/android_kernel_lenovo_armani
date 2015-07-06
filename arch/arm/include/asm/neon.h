@@ -33,5 +33,4 @@
 #else
 void kernel_neon_begin(void);
 #endif
-void kernel_neon_begin(void);
 void kernel_neon_end(void);

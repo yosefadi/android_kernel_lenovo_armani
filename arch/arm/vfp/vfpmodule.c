@@ -729,7 +729,6 @@ void kernel_neon_begin(void)
 	vfp_current_hw_state[cpu] = NULL;
 }
 EXPORT_SYMBOL(kernel_neon_begin);
-void kernel_neon_begin;
 
 void kernel_neon_end(void)
 {
