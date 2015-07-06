@@ -3013,6 +3013,10 @@ static int mdp_probe(struct platform_device *pdev)
 	pdev_list[pdev_list_cnt++] = pdev;
 	mdp4_extn_disp = 0;
 
+	#ifdef CM_LUT
+	rc = device_create_file(&pdev->dev, &dev_attr_kcal);
+	#endif
+
 	/* vsync_init call not required for mdp3
          * vsync_init call required for mdp4 targets*/
 	if ((mfd->vsync_init != NULL) || (mdp_rev < MDP_REV_40)) {
@@ -3144,6 +3148,9 @@ static int mdp_remove(struct platform_device *pdev)
 	if (mdp_pdata && mdp_pdata->mdp_bus_scale_table &&
 		mdp_bus_scale_handle > 0)
 		msm_bus_scale_unregister_client(mdp_bus_scale_handle);
+#endif
+#ifdef CM_LUT
+	device_remove_file(&pdev->dev, &dev_attr_kcal);
 #endif
 	return 0;
 }
