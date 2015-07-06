@@ -51,6 +51,14 @@ MODULE_PARM_DESC(ksgl_mmu_type,
 
 static struct ion_client *kgsl_ion_client;
 
+ void kgsl_trace_regwrite(struct kgsl_device *device, unsigned int offset,
+		unsigned int value)
+ {
+ 	trace_kgsl_regwrite(device, offset, value);
+  }
+  EXPORT_SYMBOL(kgsl_trace_regwrite);
+ 
+
 /**
  * kgsl_add_event - Add a new timstamp event for the KGSL device
  * @device - KGSL device for the new event
