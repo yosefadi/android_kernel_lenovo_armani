@@ -1552,7 +1552,7 @@ void adreno_regwrite(struct kgsl_device *device, unsigned int offsetwords,
 	if (!in_interrupt())
 		kgsl_pre_hwaccess(device);
 
-	//trace_kgsl_regwrite(device, offsetwords, value);
+	trace_kgsl_regwrite(device, offsetwords, value);
 
 	kgsl_cffdump_regwrite(device->id, offsetwords << 2, value);
 	reg = (unsigned int *)(device->reg_virt + (offsetwords << 2));
