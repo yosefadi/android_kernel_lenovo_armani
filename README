@@ -374,3 +374,18 @@ IF SOMETHING GOES WRONG:
    gdb'ing a non-running kernel currently fails because gdb (wrongly)
    disregards the starting offset for which the kernel is compiled.
 
+
+HOW TO BUILD
+For ROM building process :
+1. Add this repo to Local Manifest 
+2. lunch && brunch armani
+
+For Independent Kernel building :
+1. make cyanogenmod_armani_defconfig
+2. export CROSS_COMPILE=<path_to_your_cross_compile>
+3. make -jX (X=Your CPU Threads)
+
+Regards from Indonesia,
+
+
+Estiko - Yosef
