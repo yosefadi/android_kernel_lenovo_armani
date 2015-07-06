@@ -1898,8 +1898,7 @@ static unsigned int adreno_readtimestamp(struct kgsl_device *device,
 		break;
 	}
 	case KGSL_TIMESTAMP_CONSUMED:
-		kgsl_sharedmem_readl(&device->memstore, &timestamp,
-			KGSL_MEMSTORE_OFFSET(context_id, soptimestamp));
+		adreno_regread(device, REG_CP_TIMESTAMP, &timestamp);
 		break;
 	case KGSL_TIMESTAMP_RETIRED:
 		kgsl_sharedmem_readl(&device->memstore, &timestamp,
