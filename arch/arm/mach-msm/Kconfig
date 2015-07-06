@@ -2594,4 +2594,12 @@ config MSM_FIQ
 	  if apps is not responding and holding lock with irqs disabled.
 	  Modem will then generate an raise a FIQ on this line before sending
 	  SMSM reset
+
+config FORCE_FAST_CHARGE
+	  bool "Force AC charge mode at will"
+	  default y
+	  help
+	  A simple sysfs interface to force adapters that
+	  are detected as USB to charge as AC.	  
+
 endif
