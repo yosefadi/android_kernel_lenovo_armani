@@ -2293,6 +2293,7 @@ force_ro_fail:
 #define CID_MANFID_MICRON	0x13
 #define CID_MANFID_SAMSUNG	0x15
 #define CID_MANFID_HYNIX	0x90
+#define CID_MANFID_VGEN		0x1b
 
 static const struct mmc_fixup blk_fixups[] =
 {
@@ -2360,6 +2361,12 @@ static const struct mmc_fixup blk_fixups[] =
 	 * so we are working to fix this issue
 	 */
 	 MMC_FIXUP("XINYH", CID_MANFID_HYNIX, CID_OEMID_ANY, add_quirk_mmc,
+                  MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
+
+	/* On VGEN card, secure discard can result unrecoverable Health of
+	 * Card. So i remove the TRIM Feature of this card.
+         */
+	MMC_FIXUP("00000", CID_MANFID_VGEN, CID_OEMID_ANY, add_quirk_mmc,
                   MMC_QUIRK_SEC_ERASE_TRIM_BROKEN),
 
 	END_FIXUP

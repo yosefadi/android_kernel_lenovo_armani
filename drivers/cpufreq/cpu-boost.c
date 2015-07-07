@@ -176,29 +176,6 @@ static int boost_mig_sync_thread(void *data)
 	return 0;
 }
 
-static int boost_migration_notify(struct notifier_block *nb,
-				unsigned long dest_cpu, void *arg)
-{
-	unsigned long flags;
-	struct cpu_sync *s = &per_cpu(sync_info, dest_cpu);
-
-	if (!boost_ms)
-		return NOTIFY_OK;
-
-	pr_debug("Migration: CPU%d --> CPU%d\n", (int) arg, (int) dest_cpu);
-	spin_lock_irqsave(&s->lock, flags);
-	s->pending = true;
-	s->src_cpu = (int) arg;
-	spin_unlock_irqrestore(&s->lock, flags);
-	wake_up(&s->sync_wq);
-
-	return NOTIFY_OK;
-}
-
-static struct notifier_block boost_migration_nb = {
-	.notifier_call = boost_migration_notify,
-};
-
 static void do_input_boost(struct work_struct *work)
 {
 	unsigned int i, ret;
@@ -339,8 +316,6 @@ static int cpu_boost_init(void)
 		s->thread = kthread_run(boost_mig_sync_thread, (void *)cpu,
 					"boost_sync/%d", cpu);
 	}
-	atomic_notifier_chain_register(&migration_notifier_head,
-					&boost_migration_nb);
 
 	ret = input_register_handler(&cpuboost_input_handler);
 	return 0;
