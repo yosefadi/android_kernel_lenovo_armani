@@ -275,6 +275,10 @@ struct msmfb_writeback_data {
 	struct msmfb_img img;
 };
 
+#define MDP_PP_OPS_ENABLE 0x1
+#define MDP_PP_OPS_WRITE 0x4
+
+
 struct dpp_ctrl {
 	/*
 	 *'sharp_strength' has inputs = -128 <-> 127
