@@ -17,7 +17,6 @@
 #include <asm/assembler.h>
 	
 		.section	".start", "ax"
-		.arch armv4
 
 		b	__beginning
 	
