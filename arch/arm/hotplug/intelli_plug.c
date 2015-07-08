@@ -225,7 +225,7 @@ static void update_per_cpu_stat(void)
 
 	for_each_online_cpu(cpu) {
 		l_ip_info = &per_cpu(ip_info, cpu);
-		l_ip_info->cpu_nr_running = avg_cpu_nr_running(cpu);
+		//l_ip_info->cpu_nr_running = avg_cpu_nr_running(cpu);
 #ifdef DEBUG_INTELLI_PLUG
 		pr_info("cpu %u nr_running => %lu\n", cpu,
 			l_ip_info->cpu_nr_running);
