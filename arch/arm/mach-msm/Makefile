@@ -367,6 +367,7 @@ obj-$(CONFIG_MSM_SM_EVENT_LOG) += sm_event_log.o sm_event_driver.o
 obj-$(CONFIG_MSM_SLEEP_MONITOR) += sleep_monitor.o
 obj-$(CONFIG_MSM_SLEEP_STATS_DEVICE) += idle_stats_device.o
 obj-$(CONFIG_MSM_DCVS) += msm_dcvs_scm.o msm_dcvs.o msm_dcvs_idle.o
+obj-$(CONFIG_BRICKED_HOTPLUG) += bricked_hotplug.o
 obj-$(CONFIG_MSM_RUN_QUEUE_STATS) += msm_rq_stats.o
 obj-$(CONFIG_MSM_SHOW_RESUME_IRQ) += msm_show_resume_irq.o
 obj-$(CONFIG_BT_MSM_PINTEST)  += btpintest.o
