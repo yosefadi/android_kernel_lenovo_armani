@@ -193,7 +193,7 @@ SUBARCH := $(shell uname -m | sed -e s/i.86/i386/ -e s/sun4u/sparc64/ \
 # Note: Some architectures assign CROSS_COMPILE in their arch/*/Makefile
 export KBUILD_BUILDHOST := $(SUBARCH)
 ARCH		?= arm
-CROSS_COMPILE   ?= /home/android/test-kernel/toolchains/arm-unknown-linux-gnueabi-linaro_4.7.4-2013.12/bin/arm-gnueabi-
+CROSS_COMPILE   ?= /home/android/test-kernel/toolchains/arm-unknown-linux-gnueabi-linaro_4.8.3-2013.12/bin/arm-gnueabi-
 #CROSS_COMPILE	?= ~/test-kernel/toolchains/arm-eabi-linaro-4.6.2/bin/arm-eabi-
 
 # Architecture as present in compile.h
@@ -346,17 +346,29 @@ KALLSYMS	= scripts/kallsyms
 PERL		= perl
 CHECK		= sparse
 
+ARM_FLAGS       = -funswitch-loops \
+                  -fpredictive-commoning \
+                  -fgcse-after-reload \
+                  -fipa-cp-clone \
+                  -fsingle-precision-constant \
+                  -pipe -finline-functions \
+                  -ffast-math \
+                  -mcpu=cortex-a5 \
+                  -mfpu=neon-fp16 \
+                  -march=armv7-a \
+                  -fvect-cost-model
+
 # Use the wrapper for the compiler.  This wrapper scans for new
 # warnings and causes the build to stop upon encountering them.
 CC		= $(srctree)/scripts/gcc-wrapper.py $(REAL_CC)
 
 CHECKFLAGS     := -D__linux__ -Dlinux -D__STDC__ -Dunix -D__unix__ \
 		  -Wbitwise -Wno-return-void $(CF)
-CFLAGS_MODULE   =
-AFLAGS_MODULE   =
-LDFLAGS_MODULE  =
-CFLAGS_KERNEL	=
-AFLAGS_KERNEL	=
+CFLAGS_MODULE   = $(ARM_FLAGS) -DMODULE
+AFLAGS_MODULE   = $(ARM_FLAGS) -DMODULE --strip-debug
+LDFLAGS_MODULE  = -T $(srctree)/scripts/module-common.lds
+CFLAGS_KERNEL  = $(ARM_FLAGS) -ftree-vectorize 
+AFLAGS_KERNEL  =
 CFLAGS_GCOV	= -fprofile-arcs -ftest-coverage
 
 
@@ -378,6 +390,12 @@ KBUILD_CFLAGS   := -Wall -Wundef -Wstrict-prototypes -Wno-trigraphs \
 		   -fno-strict-aliasing -fno-common \
 		   -Werror-implicit-function-declaration \
 		   -Wno-format-security \
+		   -marm -mfloat-abi=softfp -march=armv7-a \
+                   -mfpu=neon-fp16 -ffast-math -pipe \
+                   -funswitch-loops -fpredictive-commoning -fgcse-after-reload -fno-tree-vectorize \
+                   -ftree-vectorize -funsafe-math-optimizations \
+                   -fsched-spec-load -mvectorize-with-neon-quad \
+                   -fmodulo-sched -fmodulo-sched-allow-regmoves \
 		   -fno-delete-null-pointer-checks
 KBUILD_AFLAGS_KERNEL :=
 KBUILD_CFLAGS_KERNEL :=
