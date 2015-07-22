@@ -296,7 +296,6 @@ struct mdp_overlay {
 	uint32_t flags;
 	uint32_t id;
 	uint32_t user_data[8];
-	struct dpp_ctrl dpp;
 };
 
 struct msmfb_overlay_3d {
