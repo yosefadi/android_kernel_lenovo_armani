@@ -569,4 +569,16 @@ int msm_fb_writeback_stop(struct fb_info *info);
 int msm_fb_writeback_terminate(struct fb_info *info);
 #endif
 
+struct msmfb_metadata {
+	uint32_t op;
+	uint32_t flags;
+	union {
+	uint32_t panel_frame_rate;
+	} data;
+};
+
+enum {
+	metadata_op_frame_rate,
+};
+
 #endif /*_MSM_MDP_H_*/
