@@ -76,8 +76,6 @@ static DEFINE_SPINLOCK(mdp_lock);
 static int mdp_irq_mask;
 static int mdp_irq_enabled;
 
-int frame_rate = 0;
-
 /*
  * legacy mdp_in_processing is only for DMA2-MDDI
  * this applies to DMA2 block only
@@ -1535,7 +1533,7 @@ int mdp_ppp_pipe_wait(void)
 #define MAX_VSYNC_GAP		4
 #define DEFAULT_FRAME_RATE	60
 
-u32 mdp_get_panel_framerate(struct msm_fb_data_type *mfd)
+static u32 mdp_get_panel_framerate(struct msm_fb_data_type *mfd)
 {
 	u32 frame_rate = 0, total_pixel;
 	struct msm_panel_info *panel_info = &mfd->panel_info;
