@@ -35,6 +35,9 @@ extern struct platform_device *msm_iommu_root_dev;
  */
 #define MAX_NUM_MIDS	32
 
+/* Maximum number of SMT entries allowed by the system */
+#define MAX_NUM_SMR	128
+
 /**
  * struct msm_iommu_dev - a single IOMMU hardware instance
  * name		Human-readable name given to this IOMMU HW instance
@@ -79,8 +82,10 @@ struct msm_iommu_drvdata {
 	int ttbr_split;
 	struct clk *clk;
 	struct clk *pclk;
+	struct clk *aclk;
 	const char *name;
 	struct regulator *gdsc;
+	unsigned int nsmr;
 };
 
 /**
@@ -99,6 +104,8 @@ struct msm_iommu_ctx_drvdata {
 	struct list_head attached_elm;
 	struct iommu_domain *attached_domain;
 	const char *name;
+	u32 sids[MAX_NUM_SMR];
+	unsigned int nsid;
 };
 
 /*
@@ -108,6 +115,59 @@ struct msm_iommu_ctx_drvdata {
  */
 irqreturn_t msm_iommu_fault_handler(int irq, void *dev_id);
 irqreturn_t msm_iommu_fault_handler_v2(int irq, void *dev_id);
+
+enum {
+	PROC_APPS,
+	PROC_GPU,
+	PROC_MAX
+};
+
+/* Expose structure to allow kgsl iommu driver to use the same structure to
+ * communicate to GPU the addresses of the flag and turn variables.
+ */
+struct remote_iommu_petersons_spinlock {
+	uint32_t flag[PROC_MAX];
+	uint32_t turn;
+};
+
+#ifdef CONFIG_MSM_IOMMU
+void *msm_iommu_lock_initialize(void);
+void msm_iommu_mutex_lock(void);
+void msm_iommu_mutex_unlock(void);
+#else
+static inline void *msm_iommu_lock_initialize(void)
+{
+	return NULL;
+}
+static inline void msm_iommu_mutex_lock(void) { }
+static inline void msm_iommu_mutex_unlock(void) { }
+#endif
+
+#ifdef CONFIG_MSM_IOMMU_GPU_SYNC
+void msm_iommu_remote_p0_spin_lock(void);
+void msm_iommu_remote_p0_spin_unlock(void);
+
+#define msm_iommu_remote_lock_init() _msm_iommu_remote_spin_lock_init()
+#define msm_iommu_remote_spin_lock() msm_iommu_remote_p0_spin_lock()
+#define msm_iommu_remote_spin_unlock() msm_iommu_remote_p0_spin_unlock()
+#else
+#define msm_iommu_remote_lock_init()
+#define msm_iommu_remote_spin_lock()
+#define msm_iommu_remote_spin_unlock()
+#endif
+
+/* Allows kgsl iommu driver to acquire lock */
+#define msm_iommu_lock() \
+	do { \
+		msm_iommu_mutex_lock(); \
+		msm_iommu_remote_spin_lock(); \
+	} while (0)
+
+#define msm_iommu_unlock() \
+	do { \
+		msm_iommu_remote_spin_unlock(); \
+		msm_iommu_mutex_unlock(); \
+	} while (0)
 
 #ifdef CONFIG_MSM_IOMMU
 /*
@@ -123,7 +183,6 @@ static inline struct device *msm_iommu_get_ctx(const char *ctx_name)
 }
 #endif
 
-#endif
 
 static inline int msm_soc_version_supports_iommu_v1(void)
 {
@@ -147,3 +206,4 @@ static inline int msm_soc_version_supports_iommu_v1(void)
 	}
 	return 1;
 }
+#endif
