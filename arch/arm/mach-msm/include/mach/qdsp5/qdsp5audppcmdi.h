@@ -1071,6 +1071,9 @@ struct audpp_cmd_cfg_object_params_srstm_l {
 } __packed;
 #define AUDPP_CMD_SAMPLING_FREQUENCY	7
 #define AUDPP_CMD_QRUMBLE		9
+#define AUDPP_CMD_SRS			18
+#define AUDPP_DISABLE_FEATS_LSW		2
+#define AUDPP_DISABLE_FEATS_MSW		3
 
 #endif /* QDSP5AUDPPCMDI_H */
 
