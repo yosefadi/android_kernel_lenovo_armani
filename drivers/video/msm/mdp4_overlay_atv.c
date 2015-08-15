@@ -105,6 +105,7 @@ int mdp4_atv_on(struct platform_device *pdev)
 	} else {
 		pipe->srcp0_addr = (uint32)(buf + buf_offset);
 	}
+	mdp_update_pm(mfd, vsync_ctrl_db[0].vsync_time);
 
 	pipe->srcp0_ystride = fbi->fix.line_length;
 
