@@ -62,6 +62,17 @@ static struct snd_curr_dev_info curr_dev;
 #define SND_CAD_SET_VOLUME_PROC 39
 #define MAX_SND_ACTIVE_DEVICE 2
 
+//LGE_CHANGE_S, [youngbae.choi@lge.com] , 2011-12-08
+#if defined (CONFIG_MACH_LGE)
+#define SND_SET_LOOPBACK_MODE_PROC 61
+/* LGE_CHANGE_S :  2011-12-30, gt.kim@lge.com, Description: Bluetooth NERC Cmd Support */
+#define SND_SET_NREC_PROC 77
+/* LGE_CHANGE_E :  Bluetooth NERC Cmd Support*/
+/* LGE_CHANGE_S :  2012-01-26, gt.kim@lge.com, Description:  Display Service Type */
+#define SND_GET_SERVICE_TYPE_PROC	78
+/* LGE_CHANGE_E :   Display Service Type*/
+#endif
+//LGE_CHANGE_E, [youngbae.choi@lge.com] , 2011-12-08
 struct rpc_cad_set_device_args {
 	struct cad_devices_type device;
 	uint32_t ear_mute;
@@ -91,6 +102,74 @@ struct snd_cad_set_volume_msg {
 };
 
 struct cad_endpoint *get_cad_endpoints(int *size);
+//LGE_CHANGE_S, [youngbae.choi@lge.com] , 2011-12-08
+#if defined (CONFIG_MACH_LGE)
+struct snd_set_loopback_param_rep {
+	struct rpc_reply_hdr hdr;
+	uint32_t get_mode;
+} lrep_cad;
+
+struct rpc_snd_set_loopback_mode_args {
+	uint32_t mode;
+	uint32_t cb_func;
+	uint32_t client_data;
+};
+
+struct snd_set_loopback_mode_msg {
+	struct rpc_request_hdr hdr;
+	struct rpc_snd_set_loopback_mode_args args;
+};
+
+/* LGE_CHANGE_S :  2012-1-2, gt.kim@lge.com, Description: Bluetooth NERC Cmd Support */
+struct rpc_snd_set_bt_nerc_mode_args {
+	uint32_t mode;
+	uint32_t cb_func;
+	uint32_t client_data;
+};
+
+struct snd_set_bt_nerc_mode_msg {
+	struct rpc_request_hdr hdr;
+	struct rpc_snd_set_bt_nerc_mode_args args;
+};
+
+struct snd_set_bt_nerc_mode_rep {
+	struct rpc_reply_hdr hdr;
+	uint32_t get_mode;
+}bt_nerc_rep;
+
+/* LGE_CHANGE_E :  Bluetooth NERC Cmd Support */
+
+/* LGE_CHANGE_S :  2012-01-26, gt.kim@lge.com, Description:  Display Service Type */
+int service_type;
+struct rpc_snd_get_service_type_args {
+	uint32_t cb_func;
+	uint32_t client_data;
+};
+
+struct snd_get_service_type_msg{
+	struct rpc_request_hdr hdr;
+	struct rpc_snd_get_service_type_args args;
+};
+
+struct snd_get_service_type_rep {
+	struct rpc_reply_hdr hdr;
+	uint32_t get_service;
+}get_service_rep;
+/* LGE_CHANGE_E :   Display Service Type*/
+
+union snd_set_union_param_msg{
+	struct snd_set_loopback_mode_msg lbmsg;
+/* LGE_CHANGE_S :  2012-1-2, gt.kim@lge.com, Description: Bluetooth NERC Cmd Support */
+	struct snd_set_bt_nerc_mode_msg bt_nerc;
+/* LGE_CHANGE_E :  Bluetooth NERC Cmd Support */
+
+/* LGE_CHANGE_S :  2012-01-26, gt.kim@lge.com, Description:  Display Service Type */
+	struct snd_get_service_type_msg get_service;
+/* LGE_CHANGE_E :   Display Service Type*/
+};
+
+#endif
+//LGE_CHANGE_E, [youngbae.choi@lge.com] , 2011-12-08
 
 #ifdef CONFIG_DEBUG_FS
 static struct dentry *dentry;
@@ -241,6 +320,15 @@ static long snd_cad_ioctl(struct file *file, unsigned int cmd,
 	struct msm_cad_device_config dev;
 	struct msm_cad_volume_config vol;
 	struct snd_cad_ctxt *snd = file->private_data;
+//LGE_CHANGE_S, [youngbae.choi@lge.com] , 2011-12-08
+#if defined (CONFIG_MACH_LGE)
+	struct msm_snd_set_loopback_mode_param loopback;
+/* LGE_CHANGE_S :  2012-01-05, gt.kim@lge.com, Decription: Bluetooth NERC Cmd Support */	
+    struct msm_snd_set_bt_nerc_param bt_nerc;
+/* LGE_CHANGE_E :Bluetooth NERC Cmd Support*/	
+	union snd_set_union_param_msg umsg;
+#endif
+/*LGE_CHANBE_E : jaz.john@lge.com kernel3.0 porting based on kernel2.6.38*/
 	int rc = 0;
 
 	mutex_lock(&snd->lock);
@@ -316,6 +404,99 @@ static long snd_cad_ioctl(struct file *file, unsigned int cmd,
 	case SND_GET_ENDPOINT:
 		rc = get_endpoint(snd, arg);
 		break;
+
+/*LGE_CHANBE_S : seven.kim@lge.com kernel3.0 porting based on kernel2.6.38*/
+#if defined (CONFIG_MACH_LGE)
+	case SND_SET_LOOPBACK_MODE:
+		if (copy_from_user(&loopback, (void __user *) arg, sizeof(loopback))) {
+			pr_err("snd_ioctl set_loopback_mode: invalid pointer.\n");
+			rc = -EFAULT;
+			break;
+		}
+
+		umsg.lbmsg.args.mode = cpu_to_be32(loopback.mode);
+		umsg.lbmsg.args.cb_func = -1;
+		umsg.lbmsg.args.client_data = 0;
+
+
+
+		rc = msm_rpc_call(snd->ept,
+			SND_SET_LOOPBACK_MODE_PROC,
+			&umsg.lbmsg, sizeof(umsg.lbmsg), 5 * HZ);
+
+		if (rc < 0) {
+			printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
+		} else {
+			loopback.get_param = be32_to_cpu(lrep_cad.get_mode);
+			printk(KERN_INFO "%s:loopback mode ->%d\n", __func__, loopback.get_param);
+			if (copy_to_user((void __user *)arg, &loopback, sizeof(loopback))) {
+				pr_err("snd_ioctl get loopback mode: invalid write pointer.\n");
+				rc = -EFAULT;
+			}
+		}
+	break;
+
+/* LGE_CHANGE_S :  2012-01-26, gt.kim@lge.com, Description:  Display Service Type */
+	case SND_GET_SERVICE_TYPE:
+		umsg.get_service.args.cb_func = -1;
+		umsg.get_service.args.client_data = 0;
+
+		pr_info("get_service~~ \n");
+
+		rc = msm_rpc_call_reply(snd->ept,
+			SND_GET_SERVICE_TYPE_PROC,
+			&umsg.get_service, sizeof(umsg.get_service),&get_service_rep, sizeof(get_service_rep), 5 * HZ);
+
+		if (rc < 0){
+			printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
+		}
+		else
+		{
+			service_type = be32_to_cpu(get_service_rep.get_service);
+			printk(KERN_INFO "%s:get Service ->%d\n", __func__, service_type);
+			if (copy_to_user((void __user *)arg, &service_type, sizeof(service_type))) {
+				pr_err("snd_ioctl get service: invalid write pointer.\n");
+				rc = -EFAULT;
+			}
+		}
+		break;
+/* LGE_CHANGE_E :	Display Service Type*/
+/* LGE_CHANGE_S :  2011-12-30, gt.kim@lge.com, Description: Bluetooth NERC Cmd Support */
+case SND_SET_NREC:
+	if (copy_from_user(&bt_nerc, (void __user *) arg, sizeof(bt_nerc))) {
+		pr_err("snd_ioctl set_NREC: invalid pointer.\n");
+		rc = -EFAULT;
+		break;
+	}
+
+    umsg.bt_nerc.args.mode          = cpu_to_be32(bt_nerc.mode);
+    umsg.bt_nerc.args.cb_func       = -1;
+    umsg.bt_nerc.args.client_data   = 0;
+
+	pr_info("set_NREC %d \n", bt_nerc.mode);
+
+	rc = msm_rpc_call_reply(snd->ept,
+		SND_SET_NREC_PROC,
+		&umsg.bt_nerc, sizeof(umsg.bt_nerc),&bt_nerc_rep, sizeof(bt_nerc_rep), 5 * HZ);
+
+	if (rc < 0){
+		printk(KERN_ERR "%s:rpc err because of %d\n", __func__, rc);
+	}
+	else
+	{
+		bt_nerc.get_param = be32_to_cpu(bt_nerc_rep.get_mode);
+		printk(KERN_INFO "%s:NREC mode ->%d\n", __func__, bt_nerc.get_param);
+		if (copy_to_user((void __user *)arg, &bt_nerc, sizeof(bt_nerc))) {
+			pr_err("snd_ioctl get NREC mode: invalid write pointer.\n");
+			rc = -EFAULT;
+		}
+	}
+
+	break;
+/* LGE_CHANGE_E :  Bluetooth NERC Cmd Support */
+#endif
+/*LGE_CHANBE_E : seven.kim@lge.com kernel3.0 porting based on kernel2.6.38*/
+
 
 	default:
 		MM_ERR("unknown command\n");

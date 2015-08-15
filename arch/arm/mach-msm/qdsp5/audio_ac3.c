@@ -37,7 +37,7 @@
 #include <linux/msm_audio.h>
 #include <linux/memory_alloc.h>
 #include <linux/msm_audio_ac3.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #include <mach/msm_adsp.h>
 #include <mach/iommu.h>
@@ -186,8 +186,10 @@ static void audac3_send_data(struct audio *audio, unsigned needed);
 static void audac3_dsp_event(void *private, unsigned id, uint16_t *msg);
 static void audac3_config_hostpcm(struct audio *audio);
 static void audac3_buffer_refresh(struct audio *audio);
+#ifdef CONFIG_HAS_EARLYSUSPEND
 static void audac3_post_event(struct audio *audio, int type,
 		union msm_audio_event_payload payload);
+#endif
 
 static int rmt_put_resource(struct audio *audio)
 {
@@ -1072,8 +1074,7 @@ static long audac3_ioctl(struct file *file, unsigned int cmd,
 				}
 
 				audio->map_v_read = ion_map_kernel(
-					audio->client,
-					handle, ionflag);
+					audio->client, handle);
 				if (IS_ERR(audio->map_v_read)) {
 					MM_ERR("map of read buf failed\n");
 					ion_free(audio->client, handle);
@@ -1619,7 +1620,7 @@ static int audac3_open(struct inode *inode, struct file *file)
 		goto output_buff_get_flags_error;
 	}
 
-	audio->map_v_write = ion_map_kernel(client, handle, ionflag);
+	audio->map_v_write = ion_map_kernel(client, handle);
 	if (IS_ERR(audio->map_v_write)) {
 		MM_ERR("could not map write buffers,freeing instance 0x%08x\n",
 				(int)audio);
