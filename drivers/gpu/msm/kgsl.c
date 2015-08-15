@@ -297,6 +297,52 @@ kgsl_mem_entry_create(void)
 	return entry;
 }
 
+unsigned int kgsl_get_alloc_size(int detailed)
+{
+	unsigned int ret = 0;
+	struct kgsl_process_private *private;
+	int i = 0;
+
+	ret = kgsl_driver.stats.page_alloc;
+
+	if (!detailed)
+		return ret;
+
+	mutex_lock(&kgsl_driver.process_mutex);
+
+	list_for_each_entry(private, &kgsl_driver.process_list, list) {
+		printk("kgsl: below is going to list all memory info of pid:%d \n", private->pid);
+		for (i = 0; i < KGSL_MEM_ENTRY_MAX; i++) {
+			switch (i) {
+
+			case KGSL_MEM_ENTRY_KERNEL:
+				if(private != NULL && private->stats[KGSL_MEM_ENTRY_KERNEL].cur != 0)
+					printk("kgsl: kernel alloc %d\n", private->stats[KGSL_MEM_ENTRY_KERNEL].cur);
+				break;
+			case KGSL_MEM_ENTRY_PMEM:
+				if(private != NULL && private->stats[KGSL_MEM_ENTRY_PMEM].cur != 0)
+					printk("kgsl: pmem alloc %d\n", private->stats[KGSL_MEM_ENTRY_PMEM].cur);
+				break;
+			case KGSL_MEM_ENTRY_ASHMEM:
+				if(private != NULL && private->stats[KGSL_MEM_ENTRY_ASHMEM].cur != 0)
+					printk("kgsl: ashmem alloc %d\n", private->stats[KGSL_MEM_ENTRY_ASHMEM].cur);
+				break;
+			case KGSL_MEM_ENTRY_USER:
+				if(private != NULL && private->stats[KGSL_MEM_ENTRY_USER].cur != 0)
+					printk("kgsl: user alloc %d\n", private->stats[KGSL_MEM_ENTRY_USER].cur);
+				break;
+			case KGSL_MEM_ENTRY_ION:
+				if(private != NULL && private->stats[KGSL_MEM_ENTRY_ION].cur != 0)
+					printk("kgsl: ion alloc %d\n", private->stats[KGSL_MEM_ENTRY_ION].cur);
+				break;
+			}
+		}
+	}
+	mutex_unlock(&kgsl_driver.process_mutex);
+
+	return ret;
+}
+
 void
 kgsl_mem_entry_destroy(struct kref *kref)
 {

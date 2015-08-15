@@ -175,6 +175,9 @@ struct msm_panel_info {
 	__u32 frame_count;
 	__u32 is_3d_panel;
 	__u32 frame_rate;
+	__u32 width;
+	__u32 height;
+	__u32 camera_backlight;
 	__u32 frame_interval;
 
 	struct mddi_panel_info mddi;
@@ -198,6 +201,9 @@ struct msm_fb_panel_data {
 	void (*set_backlight) (struct msm_fb_data_type *);
 
 	/* function entry chain */
+	void (*display_on) (struct msm_fb_data_type *);
+	void (*display_off) (struct msm_fb_data_type *);
+	void (*bklswitch) (struct msm_fb_data_type *, bool on);
 	int (*on) (struct platform_device *pdev);
 	int (*off) (struct platform_device *pdev);
 	int (*late_init) (struct platform_device *pdev);

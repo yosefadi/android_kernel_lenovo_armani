@@ -266,12 +266,14 @@ typedef void (*fxn)(u32 data);
 
 #define CMD_REQ_RX	0x0001
 #define CMD_REQ_COMMIT 0x0002
+#define CMD_CLK_CTRL	0x0004
 #define CMD_REQ_NO_MAX_PKT_SIZE 0x0008
 
 struct dcs_cmd_req {
 	struct dsi_cmd_desc *cmds;
 	int cmds_cnt;
 	u32 flags;
+	struct dsi_buf *rbuf;
 	int rlen;	/* rx length */
 	fxn cb;
 };
@@ -352,15 +354,5 @@ void mipi_dsi_wait4video_done(void);
 #ifdef CONFIG_FB_MSM_MDP303
 void update_lane_config(struct msm_panel_info *pinfo);
 #endif
-
-/* LGE_CHANGE_S : LCD ESD Protection 
- * 2012-01-30, yoonsoo@lge.com
- * LCD ESD Protection
- */
-#ifdef CONFIG_LGE_LCD_ESD_DETECTION
-void esd_sw_test_lcd_panel_power_off(void);
-void esd_sw_test_lcd_panel_power_on(void);
-#endif
-/* LGE_CHANGE_E : LCD ESD Protection*/ 
 
 #endif /* MIPI_DSI_H */

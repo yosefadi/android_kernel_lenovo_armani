@@ -80,10 +80,25 @@
 						unsigned int)
 #define MSMFB_ASYNC_BLIT              _IOW(MSMFB_IOCTL_MAGIC, 168, unsigned int)
 
+#define MSMFB_GET_USB_PROJECTOR_INFO _IOR(MSMFB_IOCTL_MAGIC, 301, struct msmfb_usb_projector_info)
+#define MSMFB_SET_USB_PROJECTOR_INFO _IOW(MSMFB_IOCTL_MAGIC, 302, struct msmfb_usb_projector_info)
+#define MSMFB_SET_DISP_PROJECTOR_INFO _IOW(MSMFB_IOCTL_MAGIC, 303, struct msmfb_disp_projector_info)
+
 #define FB_TYPE_3D_PANEL 0x10101010
 #define MDP_IMGTYPE2_START 0x10000
 #define MSMFB_DRIVER_VERSION	0xF9E8D701
 
+struct msmfb_usb_projector_info {
+	int usb_offset;
+	int latest_offset;
+};
+
+struct msmfb_disp_projector_info {
+	int client_width;
+	int client_height;
+	int device_width;
+	int device_height;
+};
 enum {
 	NOTIFY_UPDATE_START,
 	NOTIFY_UPDATE_STOP,

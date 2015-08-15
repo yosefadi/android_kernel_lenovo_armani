@@ -567,6 +567,8 @@ struct kgsl_timestamp_event_fence {
 #define IOCTL_KGSL_SETPROPERTY \
 	_IOW(KGSL_IOC_TYPE, 0x32, struct kgsl_device_getproperty)
 
+unsigned int kgsl_get_alloc_size(int detailed);
+
 #define IOCTL_KGSL_TIMESTAMP_EVENT \
 	_IOWR(KGSL_IOC_TYPE, 0x33, struct kgsl_timestamp_event)
 
