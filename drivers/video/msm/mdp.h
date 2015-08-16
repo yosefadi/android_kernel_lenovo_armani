@@ -24,7 +24,7 @@
 #include <linux/msm_mdp.h>
 #include <linux/memory_alloc.h>
 #include <mach/hardware.h>
-#include <linux/ion.h>
+#include <linux/msm_ion.h>
 
 #ifdef CONFIG_MSM_BUS_SCALING
 #include <mach/msm_bus.h>
@@ -44,6 +44,7 @@ extern spinlock_t mdp_spin_lock;
 extern int mdp_rev;
 extern int mdp_iommu_split_domain;
 extern struct mdp_csc_cfg mdp_csc_convert[4];
+extern struct mdp_csc_cfg_data csc_cfg_matrix[];
 extern struct workqueue_struct *mdp_hist_wq;
 
 extern uint32 mdp_intr_mask;
@@ -74,6 +75,12 @@ extern uint32 mdp_intr_mask;
 #define MDPOP_FG_PM_ALPHA       BIT(13)
 #define MDPOP_LAYER_IS_FG       BIT(14)
 #define MDP_ALLOC(x)  kmalloc(x, GFP_KERNEL)
+
+struct splash_pages {
+	struct page **pages;
+	int nrpages;
+	unsigned long size;
+};
 
 struct mdp_buf_type {
 	struct ion_handle *ihdl;
@@ -257,6 +264,12 @@ struct mdp_hist_lut_info {
 	uint32_t block;
 	boolean is_enabled, has_sel_update;
 	int bank_sel;
+};
+
+struct mdp_reg {
+	uint32_t reg;
+	uint32_t val;
+	uint32_t mask;
 };
 
 struct mdp_hist_mgmt {
@@ -613,7 +626,15 @@ extern struct mdp_hist_mgmt *mdp_hist_mgmt_array[];
 #define DMA_DSTC1B_5BITS BIT(2)
 #define DMA_DSTC2R_5BITS BIT(4)
 
+#ifdef CONFIG_FB_MSM_EBI2
+/* LGE_CHANGE
+ * FIXME: EBI2 LCD support. If QCT is implement, should be removed.
+ * 2011-06-17, bongkyu.kim@lge.com
+ */
+#define DMA_PACK_TIGHT                      0
+#else
 #define DMA_PACK_TIGHT                      BIT(6)
+#endif /*CONFIG_FB_MSM_EBI2*/
 #define DMA_PACK_LOOSE                      0
 #define DMA_PACK_ALIGN_LSB                  0
 /*
@@ -733,7 +754,7 @@ extern struct mdp_hist_mgmt *mdp_hist_mgmt_array[];
 #define MDP_DMA_P_LUT_C2_EN   BIT(2)
 #define MDP_DMA_P_LUT_POST    BIT(4)
 
-void mdp_hw_init(int cont_splash);
+void mdp_hw_init(int splash);
 int mdp_ppp_pipe_wait(void);
 void mdp_pipe_kickoff(uint32 term, struct msm_fb_data_type *mfd);
 void mdp_clk_ctrl(int on);
@@ -778,7 +799,7 @@ void mdp_dma3_update(struct msm_fb_data_type *mfd);
 int mdp_lcdc_on(struct platform_device *pdev);
 int mdp_lcdc_off(struct platform_device *pdev);
 void mdp_lcdc_update(struct msm_fb_data_type *mfd);
-
+void mdp_free_splash_buffer(struct msm_fb_data_type *mfd);
 #ifdef CONFIG_FB_MSM_MDP303
 int mdp_dsi_video_on(struct platform_device *pdev);
 int mdp_dsi_video_off(struct platform_device *pdev);
@@ -796,6 +817,10 @@ static inline int mdp4_lcdc_off(struct platform_device *pdev)
 {
 	return 0;
 }
+static inline int mdp4_mddi_off(struct platform_device *pdev)
+{
+	return 0;
+}
 static inline int mdp4_dsi_cmd_on(struct platform_device *pdev)
 {
 	return 0;
@@ -808,7 +833,30 @@ static inline int mdp4_lcdc_on(struct platform_device *pdev)
 {
 	return 0;
 }
+static inline int mdp4_mddi_on(struct platform_device *pdev)
+{
+	return 0;
+}
 #endif
+
+
+#ifndef CONFIG_FB_MSM_MDDI
+static inline void mdp4_mddi_rdptr_init(int cndx)
+{
+	/* empty */
+}
+
+#endif
+
+/* LGE_CHANGE_S : LCD ESD Protection 
+ * 2012-01-30, yoonsoo@lge.com
+ * LCD ESD Protection
+ */
+#ifdef CONFIG_LGE_LCD_ESD_DETECTION
+void esd_dma_dsi_panel_off(void);
+void esd_dma_dsi_panel_on(void);
+#endif
+/* LGE_CHANGE_E : LCD ESD Protection*/
 
 void set_cont_splashScreen_status(int);
 
@@ -832,12 +880,12 @@ int mdp_set_core_clk(u32 rate);
 int mdp_clk_round_rate(u32 rate);
 
 unsigned long mdp_get_core_clk(void);
-unsigned long mdp_perf_level2clk_rate(uint32 perf_level);
 
 #ifdef CONFIG_MSM_BUS_SCALING
-int mdp_bus_scale_update_request(uint32_t index);
+int mdp_bus_scale_update_request(u64 ab, u64 ib);
 #else
-static inline int mdp_bus_scale_update_request(uint32_t index)
+static inline int mdp_bus_scale_update_request(u64 ab,
+					       u64 ib)
 {
 	return 0;
 }
@@ -845,6 +893,12 @@ static inline int mdp_bus_scale_update_request(uint32_t index)
 void mdp_dma_vsync_ctrl(int enable);
 void mdp_dma_video_vsync_ctrl(int enable);
 void mdp_dma_lcdc_vsync_ctrl(int enable);
+ssize_t mdp_dma_show_event(struct device *dev,
+		struct device_attribute *attr, char *buf);
+ssize_t mdp_dma_video_show_event(struct device *dev,
+		struct device_attribute *attr, char *buf);
+ssize_t mdp_dma_lcdc_show_event(struct device *dev,
+		struct device_attribute *attr, char *buf);
 
 #ifdef MDP_HW_VSYNC
 void vsync_clk_prepare_enable(void);
@@ -904,12 +958,13 @@ static inline int msmfb_overlay_vsync_ctrl(struct fb_info *info,
 
 int mdp_ppp_v4l2_overlay_set(struct fb_info *info, struct mdp_overlay *req);
 int mdp_ppp_v4l2_overlay_clear(void);
-int mdp_ppp_v4l2_overlay_play(struct fb_info *info,
+int mdp_ppp_v4l2_overlay_play(struct fb_info *info, bool bUserPtr,
 	unsigned long srcp0_addr, unsigned long srcp0_size,
 	unsigned long srcp1_addr, unsigned long srcp1_size);
 void mdp_update_pm(struct msm_fb_data_type *mfd, ktime_t pre_vsync);
 
 u32 mdp_get_panel_framerate(struct msm_fb_data_type *mfd);
+
 #ifdef CONFIG_FB_MSM_DTV
 void mdp_vid_quant_set(void);
 #else

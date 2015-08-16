@@ -70,21 +70,19 @@ module_param_named(debug_mask, hs_serial_debug_mask,
 enum flush_reason {
 	FLUSH_NONE,
 	FLUSH_DATA_READY,
-	FLUSH_DATA_INVALID,  /* values after this indicate invalid data */
+	FLUSH_DATA_INVALID,  
 	FLUSH_IGNORE = FLUSH_DATA_INVALID,
 	FLUSH_STOP,
 	FLUSH_SHUTDOWN,
 };
 
 enum msm_hs_clk_states_e {
-	MSM_HS_CLK_PORT_OFF,     /* port not in use */
-	MSM_HS_CLK_OFF,          /* clock disabled */
-	MSM_HS_CLK_REQUEST_OFF,  /* disable after TX and RX flushed */
-	MSM_HS_CLK_ON,           /* clock enabled */
+	MSM_HS_CLK_PORT_OFF,     
+	MSM_HS_CLK_OFF,          
+	MSM_HS_CLK_REQUEST_OFF,  
+	MSM_HS_CLK_ON,           
 };
 
-/* Track the forced RXSTALE flush during clock off sequence.
- * These states are only valid during MSM_HS_CLK_REQUEST_OFF */
 enum msm_hs_clk_req_off_state_e {
 	CLK_REQ_OFF_START,
 	CLK_REQ_OFF_RXSTALE_ISSUED,
@@ -93,8 +91,8 @@ enum msm_hs_clk_req_off_state_e {
 };
 
 struct msm_hs_tx {
-	unsigned int tx_ready_int_en;  /* ok to dma more tx */
-	unsigned int dma_in_flight;    /* tx dma in progress */
+	unsigned int tx_ready_int_en;  
+	unsigned int dma_in_flight;    
 	enum flush_reason flush;
 	wait_queue_head_t wait;
 	struct msm_dmov_cmd xfer;
@@ -131,47 +129,46 @@ enum buffer_states {
 	CHARS_NORMAL = 0x4,
 };
 
-/* optional low power wakeup, typically on a GPIO RX irq */
 struct msm_hs_wakeup {
-	int irq;  /* < 0 indicates low power wakeup disabled */
-	unsigned char ignore;  /* bool */
+	int irq;  
+	unsigned char ignore;  
 
-	/* bool: inject char into rx tty on wakeup */
+	
 	unsigned char inject_rx;
 	char rx_to_inject;
 };
 
 struct msm_hs_port {
 	struct uart_port uport;
-	unsigned long imr_reg;  /* shadow value of UARTDM_IMR */
+	unsigned long imr_reg;  
 	struct clk *clk;
 	struct clk *pclk;
 	struct msm_hs_tx tx;
 	struct msm_hs_rx rx;
-	/* gsbi uarts have to do additional writes to gsbi memory */
-	/* block and top control status block. The following pointers */
-	/* keep a handle to these blocks. */
+	
+	
+	
 	unsigned char __iomem	*mapped_gsbi;
 	int dma_tx_channel;
 	int dma_rx_channel;
 	int dma_tx_crci;
 	int dma_rx_crci;
-	struct hrtimer clk_off_timer;  /* to poll TXEMT before clock off */
+	struct hrtimer clk_off_timer;  
 	ktime_t clk_off_delay;
 	enum msm_hs_clk_states_e clk_state;
 	enum msm_hs_clk_req_off_state_e clk_req_off_state;
 
 	struct msm_hs_wakeup wakeup;
-	struct wake_lock dma_wake_lock;  /* held while any DMA active */
+	struct wake_lock dma_wake_lock;  
 
 	struct dentry *loopback_dir;
-	struct work_struct clock_off_w; /* work for actual clock off */
-	struct workqueue_struct *hsuart_wq; /* hsuart workqueue */
-	struct mutex clk_mutex; /* mutex to guard against clock off/clock on */
+	struct work_struct clock_off_w; 
+	struct workqueue_struct *hsuart_wq; 
+	struct mutex clk_mutex; 
 	bool tty_flush_receive;
 };
 
-#define MSM_UARTDM_BURST_SIZE 16   /* DM burst size (in bytes) */
+#define MSM_UARTDM_BURST_SIZE 16   
 #define UARTDM_TX_BUF_SIZE UART_XMIT_SIZE
 #define UARTDM_RX_BUF_SIZE 512
 #define RETRY_TIMEOUT 5
@@ -241,7 +238,7 @@ static inline unsigned int use_low_power_wakeup(struct msm_hs_port *msm_uport)
 
 static inline int is_gsbi_uart(struct msm_hs_port *msm_uport)
 {
-	/* assume gsbi uart if gsbi resource found in pdata */
+	
 	return ((msm_uport->mapped_gsbi != NULL));
 }
 
@@ -302,7 +299,7 @@ static int msm_hs_request_port(struct uart_port *port)
 			return -EBUSY;
 		}
 	}
-	/* no gsbi uart */
+	
 	return 0;
 }
 
@@ -330,7 +327,7 @@ static int msm_serial_loopback_enable_set(void *data, u64 val)
 		msm_hs_write(uport, UARTDM_MR2_ADDR, ret);
 		spin_unlock_irqrestore(&uport->lock, flags);
 	}
-	/* Calling CLOCK API. Hence mb() requires here. */
+	
 	mb();
 	clk_disable_unprepare(msm_uport->clk);
 	if (msm_uport->pclk)
@@ -771,6 +768,14 @@ static void msm_hs_set_termios(struct uart_port *uport,
 
 	msm_hs_write(uport, UARTDM_IMR_ADDR, msm_uport->imr_reg);
 	mb();
+#if (defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY) || defined(CONFIG_MACH_DUMMY))
+	if (uport->line == 1) {
+		data = msm_hs_read(uport, UARTDM_DMEN_ADDR);
+		data |= UARTDM_RX_DM_EN_BMSK;
+		msm_hs_write(uport, UARTDM_DMEN_ADDR, data);
+		mb();
+	}
+#endif
 	spin_unlock_irqrestore(&uport->lock, flags);
 }
 
@@ -1917,7 +1922,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	resource = platform_get_resource(pdev, IORESOURCE_MEM, 0);
 	if (unlikely(!resource))
 		return -ENXIO;
-	uport->mapbase = resource->start;  /* virtual address */
+	uport->mapbase = resource->start;  
 
 	uport->membase = ioremap(uport->mapbase, PAGE_SIZE);
 	if (unlikely(!uport->membase))
@@ -2020,7 +2025,7 @@ static int __devinit msm_hs_probe(struct platform_device *pdev)
 	hrtimer_init(&msm_uport->clk_off_timer, CLOCK_MONOTONIC,
 		     HRTIMER_MODE_REL);
 	msm_uport->clk_off_timer.function = msm_hs_clk_off_retry;
-	msm_uport->clk_off_delay = ktime_set(0, 1000000);  /* 1ms */
+	msm_uport->clk_off_delay = ktime_set(0, 1000000);  
 
 	ret = sysfs_create_file(&pdev->dev.kobj, &dev_attr_clock.attr);
 	if (unlikely(ret))
@@ -2163,19 +2168,19 @@ static int msm_hs_runtime_idle(struct device *dev)
 
 static int msm_hs_runtime_resume(struct device *dev)
 {
-/*	struct platform_device *pdev = container_of(dev, struct
+	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
 	struct msm_hs_port *msm_uport = &q_uart_port[pdev->id];
-	msm_hs_request_clock_on(&msm_uport->uport);*/
+	msm_hs_request_clock_on(&msm_uport->uport);
 	return 0;
 }
 
 static int msm_hs_runtime_suspend(struct device *dev)
 {
-/*	struct platform_device *pdev = container_of(dev, struct
+	struct platform_device *pdev = container_of(dev, struct
 						    platform_device, dev);
 	struct msm_hs_port *msm_uport = &q_uart_port[pdev->id];
-	msm_hs_request_clock_off(&msm_uport->uport);*/
+	msm_hs_request_clock_off(&msm_uport->uport);
 	return 0;
 }
 

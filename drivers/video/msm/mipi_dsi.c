@@ -29,11 +29,14 @@
 #include <mach/hardware.h>
 #include <mach/gpio.h>
 #include <mach/clk.h>
+#include <mach/debug_display.h>
 
 #include "msm_fb.h"
 #include "mipi_dsi.h"
 #include "mdp.h"
 #include "mdp4.h"
+
+#include <mach/panel_id.h>
 
 u32 dsi_irq;
 u32 esc_byte_ratio;
@@ -75,22 +78,15 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	if (mdp_rev >= MDP_REV_41)
 		mutex_lock(&mfd->dma->ov_mutex);
 	else
-		down(&mfd->dma->mutex);
+		htc_mdp_sem_down(current, &mfd->dma->mutex);
 
 	mdp4_overlay_dsi_state_set(ST_DSI_SUSPEND);
 
-	/* make sure dsi clk is on so that
-	 * dcs commands can be sent
-	 */
 	mipi_dsi_clk_cfg(1);
 
-	/* make sure dsi_cmd_mdp is idle */
+	
 	mipi_dsi_cmd_mdp_busy();
 
-	/*
-	 * Desctiption: change to DSI_CMD_MODE since it needed to
-	 * tx DCS dsiplay off comamnd to panel
-	 */
 	mipi_dsi_op_mode_config(DSI_CMD_MODE);
 
 	if (mfd->panel_info.type == MIPI_CMD_PANEL) {
@@ -103,16 +99,13 @@ static int mipi_dsi_off(struct platform_device *pdev)
 		}
 	}
 
-	ret = panel_next_off(pdev);
-
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(0);
-#endif
+	if (panel_type != PANEL_ID_PROTOU_LG && panel_type != PANEL_ID_PROTODCG_LG)
+		ret = panel_next_off(pdev);
 
 	spin_lock_bh(&dsi_clk_lock);
 	mipi_dsi_clk_disable();
 
-	/* disbale dsi engine */
+	
 	MIPI_OUTP(MIPI_DSI_BASE + 0x0000, 0);
 
 	mipi_dsi_phy_ctrl(0);
@@ -127,7 +120,7 @@ static int mipi_dsi_off(struct platform_device *pdev)
 	if (mdp_rev >= MDP_REV_41)
 		mutex_unlock(&mfd->dma->ov_mutex);
 	else
-		up(&mfd->dma->mutex);
+		htc_mdp_sem_up(&mfd->dma->mutex);
 
 	pr_debug("%s-:\n", __func__);
 
@@ -156,7 +149,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	if (mipi_dsi_pdata && mipi_dsi_pdata->dsi_power_save)
 		mipi_dsi_pdata->dsi_power_save(1);
-
+	
 	cont_splash_clk_ctrl(0);
 	mipi_dsi_prepare_clocks();
 
@@ -204,8 +197,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 					width + dummy_xres + hfp - 1));
 		} else {
 			/* DSI_LAN_SWAP_CTRL */
-			MIPI_OUTP(MIPI_DSI_BASE + 0x00ac,
-						mipi_dsi_pdata->dlane_swap);
+			MIPI_OUTP(MIPI_DSI_BASE + 0x00ac, mipi->dlane_swap);
 
 			MIPI_OUTP(MIPI_DSI_BASE + 0x20,
 				((hbp + width + dummy_xres) << 16 | (hbp)));
@@ -243,7 +235,7 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		MIPI_OUTP(MIPI_DSI_BASE + 0x58, data);
 	}
 
-	mipi_dsi_host_init(mipi, mipi_dsi_pdata->dlane_swap);
+	mipi_dsi_host_init(mipi);
 
 	if (mipi->force_clk_lane_hs) {
 		u32 tmp;
@@ -311,10 +303,6 @@ static int mipi_dsi_on(struct platform_device *pdev)
 		}
 	}
 
-#ifdef CONFIG_MSM_BUS_SCALING
-	mdp_bus_scale_update_request(2);
-#endif
-
 	mdp4_overlay_dsi_state_set(ST_DSI_RESUME);
 
 	if (mdp_rev >= MDP_REV_41)
@@ -326,7 +314,6 @@ static int mipi_dsi_on(struct platform_device *pdev)
 
 	return ret;
 }
-
 
 static int mipi_dsi_resource_initialized;
 
@@ -383,11 +370,6 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 
 		if (mdp_rev == MDP_REV_42 && mipi_dsi_pdata &&
 			mipi_dsi_pdata->target_type == 1) {
-			/* Target type is 1 for device with (De)serializer
-			 * 0x4f00000 is the base for TV Encoder.
-			 * Unused Offset 0x1000 is used for
-			 * (de)serializer on emulation platform
-			 */
 			periph_base = ioremap(MMSS_SERDES_BASE_PHY, 0x100);
 
 			if (periph_base) {
@@ -453,14 +435,8 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 	if (!mdp_dev)
 		return -ENOMEM;
 
-	/*
-	 * link to the latest pdev
-	 */
 	mfd->pdev = mdp_dev;
 
-	/*
-	 * alloc panel device data
-	 */
 	if (platform_device_add_data
 	    (mdp_dev, pdev->dev.platform_data,
 	     sizeof(struct msm_fb_panel_data))) {
@@ -468,17 +444,11 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		platform_device_put(mdp_dev);
 		return -ENOMEM;
 	}
-	/*
-	 * data chain
-	 */
 	pdata = mdp_dev->dev.platform_data;
 	pdata->on = mipi_dsi_on;
 	pdata->off = mipi_dsi_off;
 	pdata->next = pdev;
 
-	/*
-	 * get/set panel specific fb info
-	 */
 	mfd->panel_info = pdata->panel_info;
 	pinfo = &mfd->panel_info;
 
@@ -540,7 +510,7 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		 || (mipi->dst_format == DSI_VIDEO_DST_FORMAT_RGB565))
 		bpp = 2;
 	else
-		bpp = 3;		/* Default format set to RGB888 */
+		bpp = 3;		
 
 	if (mfd->panel_info.type == MIPI_VIDEO_PANEL &&
 		!mfd->panel_info.clk_rate) {
@@ -568,14 +538,8 @@ static int mipi_dsi_probe(struct platform_device *pdev)
 		dsi_pclk_rate = 35000000;
 	mipi->dsi_pclk_rate = dsi_pclk_rate;
 
-	/*
-	 * set driver data
-	 */
 	platform_set_drvdata(mdp_dev, mfd);
 
-	/*
-	 * register in mdp driver
-	 */
 	rc = platform_device_add(mdp_dev);
 	if (rc)
 		goto mipi_dsi_probe_err;

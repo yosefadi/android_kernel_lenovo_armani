@@ -319,4 +319,18 @@ struct audpp_msg_routing_ack {
 #define ADSP_MESSAGE_ID 0xFFFF
 
 #define AUDPP_MSG_FEAT_QUERY_DM_DONE 0x000b
+
+/*
+ * ADSP sends this message when a PP feature is disabled
+ * due to ADSP resource limitation.
+ */
+#define AUDPP_MSG_PP_DISABLE_FEEDBACK 0x000C
+
+/*
+ * This message is sent by ADSP if any PP features is disabled
+ * due to video and audio concurrency due to MIPS limitation and
+ * the video session is ended in ADSP.
+ */
+#define AUDPP_MSG_PP_FEATS_RE_ENABLE 0x000D
+
 #endif /* QDSP5AUDPPMSG_H */
