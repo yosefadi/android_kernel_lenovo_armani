@@ -16,6 +16,7 @@
  */
 
 #include <linux/err.h>
+#include <linux/msm_ion.h>
 #include <linux/ion.h>
 #include "ion_priv.h"
 

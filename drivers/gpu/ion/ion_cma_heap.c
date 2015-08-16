@@ -17,6 +17,7 @@
 
 #include <linux/device.h>
 #include <linux/ion.h>
+#include <linux/msm_ion.h>
 #include <linux/slab.h>
 #include <linux/errno.h>
 #include <linux/err.h>
