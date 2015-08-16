@@ -60,9 +60,6 @@
 #define MSM_FB_NUM	3
 #endif
 
-static struct task_struct *htc_mdp_owner_task = NULL;
-void htc_mdp_sem_down(struct task_struct *current_task, struct semaphore *mutex);
-void htc_mdp_sem_up(struct semaphore *mutex);
 static unsigned char *fbram;
 static unsigned char *fbram_phys;
 static int fbram_size;
@@ -77,6 +74,7 @@ static struct platform_device *pdev_list[MSM_FB_MAX_DEV_LIST];
 static int pdev_list_cnt;
 
 int vsync_mode = 1;
+int ret, i = 0;
 
 #define MAX_BLIT_REQ 256
 
@@ -106,6 +104,8 @@ u32 mddi_msg_level = 5;
 extern int32 mdp_block_power_cnt[MDP_MAX_BLOCK];
 extern unsigned long mdp_timer_duration;
 
+extern void lm3528_set_keyboardbl(int key_blan);
+
 static int msm_fb_register(struct msm_fb_data_type *mfd);
 static int msm_fb_open(struct fb_info *info, int user);
 static int msm_fb_release(struct fb_info *info, int user);
@@ -127,34 +127,7 @@ static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
 static void msm_fb_scale_bl(__u32 *bl_lvl);
 static void msm_fb_commit_wq_handler(struct work_struct *work);
 static int msm_fb_pan_idle(struct msm_fb_data_type *mfd);
-
-#define NUM_ALLOC 3
-#define ION_CLIENT_FB_PJT "msmfb_projector"
-static struct ion_client *usb_pjt_client = NULL;
-static struct ion_handle *usb_pjt_handle[NUM_ALLOC] = { NULL };
-static void *virt_addr[NUM_ALLOC] = {0};
-static int mem_fd[NUM_ALLOC] = {0};
-static struct msmfb_usb_projector_info usb_pjt_info = {0, 0};
-static int mem_mapped = 0;
-
-char *get_fb_addr(void)
-{
-	int i;
-
-	if (!usb_pjt_info.latest_offset) {
-		printk(KERN_WARNING "%s: wrong address sent via ioctl?\n", __func__);
-		return 0;
-	}
-
-	usb_pjt_info.usb_offset = usb_pjt_info.latest_offset;
-
-	for (i=0; i<NUM_ALLOC; i++)
-		if (mem_fd[i] == usb_pjt_info.usb_offset)
-			return (char *)virt_addr[i];
-
-	printk(KERN_ERR "%s: <FATAL> Impossible to be here.\n", __func__);
-	return 0;
-}
+void msm_fb_set_keyboardbacklight(__u32 key_blan);
 
 #ifdef MSM_FB_ENABLE_DBGFS
 
@@ -176,6 +149,8 @@ int msm_fb_debugfs_file_index;
 struct dentry *msm_fb_debugfs_root;
 struct dentry *msm_fb_debugfs_file[MSM_FB_MAX_DBGFS];
 static int bl_scale, bl_min_lvl;
+bool disable_brightness = false;
+int key_blan_state = 1;
 
 DEFINE_MUTEX(msm_fb_notify_update_sem);
 void msmfb_no_update_notify_timer_cb(unsigned long data)
@@ -208,7 +183,7 @@ void msm_fb_debugfs_file_create(struct dentry *root, const char *name,
 int msm_fb_cursor(struct fb_info *info, struct fb_cursor *cursor)
 {
 	struct msm_fb_data_type *mfd = (struct msm_fb_data_type *)info->par;
-
+	msm_fb_pan_idle(mfd);
 	if (!mfd->cursor_update)
 		return -ENODEV;
 
@@ -231,14 +206,8 @@ static void msm_fb_set_bl_brightness(struct led_classdev *led_cdev,
 
 	/* This maps android backlight level 0 to 255 into
 	   driver backlight level 0 to bl_max with rounding */
-	bl_lvl = (2 * value * mfd->panel_info.bl_max + MAX_BACKLIGHT_BRIGHTNESS)
-		/(2 * MAX_BACKLIGHT_BRIGHTNESS);
-
-	if (!bl_lvl && value)
-		bl_lvl = 1;
-	down(&mfd->sem);
-	msm_fb_set_backlight(mfd, bl_lvl);
-	up(&mfd->sem);
+       bl_lvl = value;
+       msm_fb_set_backlight(mfd, bl_lvl);
 }
 
 static struct led_classdev backlight_led = {
@@ -387,38 +356,6 @@ static void msm_fb_remove_sysfs(struct platform_device *pdev)
 	sysfs_remove_group(&mfd->fbi->dev->kobj, &msm_fb_attr_group);
 }
 
-void htc_mdp_sem_down(struct task_struct *current_task, struct semaphore *mutex)
-{
-	int ret = 0;
-	do {
-		ret = down_timeout(mutex, msecs_to_jiffies(5000));
-		if (ret != 0) {
-			if (htc_mdp_owner_task) {
-				printk(KERN_ERR "===== htc_mdp_owner_task: %s =====\n", htc_mdp_owner_task->comm);
-				
-				show_stack(htc_mdp_owner_task, htc_mdp_owner_task->stack);
-			}
-
-			printk(KERN_ERR "===== current_task: %s, ret=%d =====\n", current_task->comm, ret);
-			show_stack(current_task, current_task->stack);
-		}
-	} while (ret != 0);
-
-	
-	htc_mdp_owner_task = current_task;
-}
-
-void htc_mdp_sem_up(struct semaphore *mutex)
-{
-	
-	htc_mdp_owner_task = NULL;
-
-	up(mutex);
-}
-
-static void bl_workqueue_handler(struct work_struct *work);
-
-
 
 static int msm_fb_probe(struct platform_device *pdev)
 {
@@ -458,7 +395,6 @@ static int msm_fb_probe(struct platform_device *pdev)
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
 
-	INIT_DELAYED_WORK(&mfd->backlight_worker, bl_workqueue_handler);
 
 	if (!mfd)
 		return -ENODEV;
@@ -521,6 +457,8 @@ static int msm_fb_remove(struct platform_device *pdev)
 	MSM_FB_DEBUG("msm_fb_remove\n");
 
 	mfd = (struct msm_fb_data_type *)platform_get_drvdata(pdev);
+
+	msm_fb_pan_idle(mfd);
 
 	msm_fb_remove_sysfs(pdev);
 
@@ -588,6 +526,8 @@ static int msm_fb_suspend(struct platform_device *pdev, pm_message_t state)
 
 	if ((!mfd) || (mfd->key != MFD_KEY))
 		return 0;
+
+	msm_fb_pan_idle(mfd);
 
 	console_lock();
 	fb_set_suspend(mfd->fbi, FBINFO_STATE_SUSPENDED);
@@ -834,70 +774,6 @@ static void msmfb_early_resume(struct early_suspend *h)
 }
 #endif
 
-#ifdef CONFIG_HTC_ONMODE_CHARGING
-static void msmfb_onchg_suspend(struct early_suspend *h)
-{
-	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
-						    onchg_suspend);
-#ifdef CONFIG_FB_MSM_OVERLAY
-	struct fb_info *fbi = mfd->fbi;
-	printk("[DISP] %s\n", __func__);
-	switch (mfd->fbi->var.bits_per_pixel) {
-	case 32:
-		memset32_io((void *)fbi->screen_base, 0xFF000000,
-				fbi->fix.smem_len);
-		break;
-	default:
-		memset_io(fbi->screen_base, 0x00, fbi->fix.smem_len);
-		break;
-	}
-#endif
-	mutex_lock(&suspend_mutex);
-	MSM_FB_INFO("%s starts.\n", __func__);
-	msm_fb_suspend_sub(mfd);
-	MSM_FB_INFO("%s is done.\n", __func__);
-
-	in_onchg_resume = FALSE;
-	mutex_unlock(&suspend_mutex);
-}
-
-static void msmfb_onchg_resume(struct early_suspend *h)
-{
-	struct msm_fb_data_type *mfd = container_of(h, struct msm_fb_data_type,
-						    onchg_suspend);
-	printk("[DISP] %s\n", __func__);
-
-	mutex_lock(&suspend_mutex);
-	MSM_FB_INFO("%s starts.\n", __func__);
-	msm_fb_resume_sub(mfd);
-	MSM_FB_INFO("%s is done.\n", __func__);
-
-	in_onchg_resume = TRUE;
-	mutex_unlock(&suspend_mutex);
-}
-#endif 
-
-#ifdef PROTOU_ESD_WORKAROUND
-void htc_protou_esd_wq_routine(struct work_struct *work) {
-	int esd_test = 0;
-
-	if (board_mfg_mode() != 4) {
-		htc_mdp_sem_down(current, &htc_protou_mfd->dma->mutex);
-		esd_test = mipi_dsi_cmd_bta_sw_trigger_special();
-		htc_mdp_sem_up(&htc_protou_mfd->dma->mutex);
-		if (esd_test == 0) {
-			printk(KERN_ERR "[DISP] DriverIC didn't response!! Recover!!\n");
-			mutex_lock(&suspend_mutex);
-			msm_fb_suspend_sub(htc_protou_mfd);
-			mdelay(100);
-			msm_fb_resume_sub(htc_protou_mfd);
-			mutex_unlock(&suspend_mutex);
-		}
-		queue_delayed_work(htc_protou_esd_wq, &htc_protou_esd_dw, msecs_to_jiffies(5000));
-	}
-}
-#endif
-
 static int unset_bl_level, bl_updated;
 static int bl_level_old;
 static int mdp_bl_scale_config(struct msm_fb_data_type *mfd,
@@ -960,6 +836,25 @@ void msm_fb_set_backlight(struct msm_fb_data_type *mfd, __u32 bkl_lvl)
 		mfd->bl_level = bkl_lvl;
 		bl_level_old = temp;
 	}
+}
+ 
+static int unset_key_blan = -1;
+static int keybl_updated;
+void msm_fb_set_keyboardbacklight(__u32 key_blan)
+{
+    printk("%s: keyboard backlight set = %d keybl_updated = %d disable_brightness = %d\n",__func__,key_blan,keybl_updated,disable_brightness);
+	key_blan_state = key_blan;
+	if (key_blan > 1)
+		key_blan = 1;
+
+	if (!keybl_updated ||disable_brightness) {
+		unset_key_blan = key_blan;
+		return;
+	} else {
+		unset_key_blan = -1;
+	}
+
+	lm3528_set_keyboardbl(key_blan);
 }
 
 static int msm_fb_blank_sub(int blank_mode, struct fb_info *info,
@@ -1880,22 +1775,6 @@ int msm_fb_signal_timeline(struct msm_fb_data_type *mfd)
 	mfd->cur_rel_fence = 0;
 	mutex_unlock(&mfd->sync_mutex);
 	return 0;
-}
-
-static void bl_workqueue_handler(struct work_struct *work)
-{
-	struct msm_fb_data_type *mfd = container_of(to_delayed_work(work),
-				struct msm_fb_data_type, backlight_worker);
-	struct msm_fb_panel_data *pdata = mfd->pdev->dev.platform_data;
-
-	if ((pdata) && (pdata->set_backlight) && (!bl_updated)) {
-		down(&mfd->sem);
-		mfd->bl_level = unset_bl_level;
-		pdata->set_backlight(mfd);
-		bl_level_old = unset_bl_level;
-		bl_updated = 1;
-		up(&mfd->sem);
-	}
 }
 
 void msm_fb_release_timeline(struct msm_fb_data_type *mfd)
@@ -3841,7 +3720,6 @@ static int msm_fb_ioctl(struct fb_info *info, unsigned int cmd,
 	struct mdp_buf_sync buf_sync;
 	int ret = 0;
 	msm_fb_pan_idle(mfd);
-	struct msmfb_usb_projector_info tmp_info;
 
 	switch (cmd) {
 #ifdef CONFIG_FB_MSM_OVERLAY

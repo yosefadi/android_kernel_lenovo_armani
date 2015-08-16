@@ -253,7 +253,7 @@ enum msm_camera_actuator_name {
 	MSM_ACTUATOR_MAIN_CAM_3,
 	MSM_ACTUATOR_MAIN_CAM_4,
 	MSM_ACTUATOR_MAIN_CAM_5,
-	MSM_ACTUATOR_MAIN_CAM_6,	
+	MSM_ACTUATOR_MAIN_CAM_6,
 	MSM_ACTUATOR_MAIN_CAM_7,
 	MSM_ACTUATOR_MAIN_CAM_8,
 	MSM_ACTUATOR_MAIN_CAM_9,
@@ -423,6 +423,8 @@ struct msm_panel_common_pdata {
 	u32 splash_screen_addr;
 	u32 splash_screen_size;
 	char mdp_iommu_split_domain;
+	int (*mdp_color_enhance)(void);
+	int (*mdp_gamma)(void);
         u32 avtimer_phy;
 };
 
@@ -459,6 +461,7 @@ struct mipi_dsi_platform_data {
 	int (*get_lane_config)(void);
 	char (*splash_is_enabled)(void);
 	int target_type;
+	char dlane_swap;
 };
 
 enum mipi_dsi_3d_ctrl {
@@ -483,6 +486,7 @@ struct mipi_dsi_panel_platform_data {
 	char dlane_swap;
 	void (*dsi_pwm_cfg)(void);
 	char enable_wled_bl_ctrl;
+	void (*gpio_set_backlight)(int bl_level);
 };
 
 struct lvds_panel_platform_data {
